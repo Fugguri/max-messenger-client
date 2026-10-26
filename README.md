@@ -1,10 +1,10 @@
-# maxws — неофициальный клиент MAX (max.ru / web.max.ru) на Python
+# maxmessenger — неофициальный клиент MAX (max.ru / web.max.ru) на Python
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![tests](https://github.com/Fugguri/maxws/actions/workflows/ci.yml/badge.svg)](https://github.com/Fugguri/maxws/actions/workflows/ci.yml)
+[![tests](https://github.com/Fugguri/max-messenger-client/actions/workflows/ci.yml/badge.svg)](https://github.com/Fugguri/max-messenger-client/actions/workflows/ci.yml)
 
-**maxws** — неофициальный Python-клиент и спецификация WebSocket-протокола
+**maxmessenger** — неофициальный Python-клиент и спецификация WebSocket-протокола
 мессенджера **MAX** (`web.max.ru`, `max.ru`): фрейминг, msgpack, id (ext type 1),
 LZ4-сжатие (`flags`), HELLO/AUTH, чаты, участники, отправка сообщений и медиа.
 Reverse-engineered по перехвату WS-кадров; не связан с VK/MAX.
@@ -12,6 +12,9 @@ Reverse-engineered по перехвату WS-кадров; не связан с
 > **English:** Unofficial Python client and protocol notes for the MAX messenger
 > (`max.ru` / `web.max.ru`) WebSocket API: frame codec, msgpack, LZ4, HELLO/AUTH,
 > chats, media, sending. Reverse-engineered; not affiliated with VK/MAX.
+
+Репозиторий: [Fugguri/max-messenger-client](https://github.com/Fugguri/max-messenger-client)
+· Python package: `maxmessenger`.
 
 Если вы ищете неофициальный API/клиент MAX, Python-клиент MAX или разбор его
 WebSocket-протокола — это оно. Полная спека — [`PROTOCOL.md`](PROTOCOL.md).
@@ -24,7 +27,9 @@ WebSocket-протокола — это оно. Полная спека — [`PR
 > финального прогона против реального сервера** `wss://api.oneme.ru/websocket`
 > (сам код кадров/сжатия совпадает с браузером байт-в-байт).
 
-## Что умеет
+## Что сделано
+
+Сделан reverse-engineering WebSocket-протокола MAX и публичная Python-реализация:
 
 - **Frame codec** — заголовок `0x0A`, направление, `seq`, опкод, `flags`, u24-длина, payload.
 - **msgpack + MAX id** — ext type 1 (uint64/int64), отрицательные id групп.
@@ -33,14 +38,57 @@ WebSocket-протокола — это оно. Полная спека — [`PR
 - **Чаты и сообщения** — список, история, участники, поиск по номеру, отправка/правка/удаление.
 - **Форматирование и медиа** — HTML → `elements`, загрузка фото на CDN и attach.
 - **Async-клиент** — `websockets`, авто-реконнект и ретраи.
+- **Креды** — `tools/max_creds.py`: один ручной вход в браузере, дальше автоматическое
+  получение `token`/`deviceId` из persistent-профиля Playwright.
+- **Спецификация и тесты** — `PROTOCOL.md` + 33 теста на фрейминг, msgpack, id, LZ4,
+  форматирование и медиа.
 
-Если вы ищете неофициальный API MAX, Python-клиент `max.ru`/`web.max.ru` или
-reverse-engineering WebSocket-протокола — этот репозиторий для вас.
+## Как делали
+
+1. Залогинились в `web.max.ru`, открыли DevTools → Network → WS и записали бинарные кадры.
+2. Разобрали заголовок: `0A · dir · seq(u16) · opcode(u16) · flags · length(u24) · payload`.
+3. Поняли, что payload — msgpack; MAX id кодируются как **ext type 1** (`0xCF + uint64`,
+   отрицательные — `0xD3 + int64`).
+4. Обнаружили LZ4: при `flags > 0` payload сжат block-режимом, `flags = ceil(raw/compressed)`.
+5. Собрали обратный кодек и проверяли `decode(raw).encode() == raw` на кадрах из трейса;
+   так же восстановили `HELLO`/`AUTH` и device fingerprint.
+6. Для публичного репозитория живой трейс заменили **синтетическим**: в реальных кадрах
+   были deviceId, чаты и имена. Приватный live-трейс остался вне гита.
+
+## Как работает
+
+```text
+web.max.ru (browser)
+  localStorage: __oneme_auth -> token
+                __oneme_device_id -> deviceId
+        │
+        ▼
+MaxClient(token, device)
+  connect   wss://api.oneme.ru/websocket   (Origin: https://web.max.ru)
+  hello     0x06  {userAgent, deviceId}
+  auth      0x13  {token, chatsCount, ...} -> session/chats/contacts/profile
+  request   0x40 / 0x31 / 0x23 / ...       seq + msgpack (+ LZ4)
+        │
+        ▼
+  _recv_loop -> match seq -> Frame.data -> on_event
+```
+
+- **Слои**: `protocol.py` — кадры; `codec.py` — msgpack/id/LZ4; `client.py` — connect/hello/
+  auth/requests; `device.py` — fingerprint; `media.py`/`formatting.py` — вложения и `elements`.
+- **HELLO/AUTH**: `HELLO` отправляет fingerprint с тем же `deviceId`, что в браузере;
+  `AUTH` — bearer-токен и лимит чатов; ответ сохраняется в `client.session`.
+- **Запросы**: `seq` сопоставляет ответ с ожидающим future; входящие без ожидания уходят
+  в `on_event`. Отправка — `0x40`, история — `0x31`, участники — `0x23`.
+- **Ретраи**: при обрыве/таймауте клиент переподключается и повторяет `hello` + `auth`.
+- **Креды**: `tools/max_creds.py login` один раз открывает браузер; `get` дальше читает
+  localStorage headless и обновляет `creds.json`/`device.json`.
+- **Ограничение**: полный live-прогон клиента ещё не завершён; капчу/SMS автоматизировать
+  нельзя, токен долгоживущий и при протухании нужен повторный ручной вход.
 
 ## Установка
 
 ```bash
-pip install git+https://github.com/Fugguri/maxws.git
+pip install git+https://github.com/Fugguri/max-messenger-client.git
 # или локально:
 pip install -e ".[dev]"
 ```
@@ -48,14 +96,15 @@ pip install -e ".[dev]"
 ## Что внутри (один модуль)
 
 ```
-maxws/
+maxmessenger/
   protocol.py   # кодек кадров: 0A·dir·seq·opcode·flags·length·msgpack  (ПРОВЕРЕНО)
   codec.py      # msgpack + Id (ext type 1 = uint64) + сборка payload'ов (ПРОВЕРЕНО)
   opcodes.py    # опкоды (HELLO/AUTH/SEND/GET_MEMBERS/…)
   device.py     # device fingerprint для HELLO (имитация реального устройства)
-  client.py     # MaxClient (async, websockets) — СКЕЛЕТ, нужна live-проверка
-PROTOCOL.md     # спецификация протокола
-tests/          # pytest: round-trip кодека на публичном синтетическом ws_trace.json
+  client.py     # MaxClient: connect/hello/auth/requests, ретраи; нужен финальный live-прогон
+tools/max_creds.py  # вход в MAX + автополучение token/deviceId
+PROTOCOL.md          # спецификация протокола
+tests/               # pytest: round-trip кодека на публичном синтетическом ws_trace.json
 examples/
 ```
 
@@ -68,8 +117,8 @@ examples/
 ## Пример (кодек — работает уже сейчас)
 
 ```python
-from maxws import Frame, codec
-from maxws.codec import Id
+from maxmessenger import Frame, codec
+from maxmessenger.codec import Id
 
 # собрать кадр отправки сообщения
 payload = codec.build_send(chat_id=123456789, text="привет", cid=1234567890)
@@ -84,7 +133,7 @@ Live-клиент (когда допроверим handshake):
 
 ```python
 import asyncio
-from maxws import MaxClient, Device
+from maxmessenger import MaxClient, Device
 
 async def main():
     async with MaxClient(url="wss://...", token="<bearer>", device=Device.load_or_create("dev.json")) as c:
@@ -150,16 +199,16 @@ python tools/max_creds.py login   # откроется браузер: войд�
 python tools/max_creds.py get     # headless: обновляет creds.json + device.json
 ```
 
-Пишет `~/.config/maxws/creds.json` (0600) и `~/.config/maxws/device.json`
+Пишет `~/.config/maxmessenger/creds.json` (0600) и `~/.config/maxmessenger/device.json`
 с тем же `deviceId`, что в браузере. Дальше:
 
 ```python
 import json
 from pathlib import Path
-from maxws import MaxClient, Device
+from maxmessenger import MaxClient, Device
 
-creds = json.loads(Path("~/.config/maxws/creds.json").expanduser().read_text())
-device = Device.load_or_create(Path("~/.config/maxws/device.json").expanduser())
+creds = json.loads(Path("~/.config/maxmessenger/creds.json").expanduser().read_text())
+device = Device.load_or_create(Path("~/.config/maxmessenger/device.json").expanduser())
 async with MaxClient(creds["token"], device=device) as c:
     ...
 ```
@@ -168,7 +217,7 @@ async with MaxClient(creds["token"], device=device) as c:
 
 ```python
 import asyncio
-from maxws import MaxClient, Device, formatting
+from maxmessenger import MaxClient, Device, formatting
 
 async def main():
     dev = Device(device_id="00000000-0000-0000-0000-000000000000")          # тот же, что в браузере

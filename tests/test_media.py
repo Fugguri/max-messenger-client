@@ -3,11 +3,12 @@
 Схема разобрана перехватом web.max.ru (2026-08-31), флоу проверен вживую:
 REQUEST_UPLOAD(0x50){count} → {url} → POST file → {photos:{id:{token}}} → SEND attaches[PHOTO].
 """
+
 from __future__ import annotations
 
 import pytest
 
-from maxws import codec, media, opcodes
+from maxmessenger import codec, media, opcodes
 
 
 def test_request_upload_opcode():

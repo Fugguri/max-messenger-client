@@ -12,6 +12,7 @@
 
 Один бинарный WS-message = один такой кадр.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -59,7 +60,9 @@ class Frame:
         opcode = int.from_bytes(data[4:6], "big")
         flags = data[6]
         length = int.from_bytes(data[7:10], "big")
-        payload = data[HEADER_LEN:HEADER_LEN + length]
+        payload = data[HEADER_LEN : HEADER_LEN + length]
         if len(payload) != length:
             raise ValueError(f"payload truncated: got {len(payload)}, want {length}")
-        return cls(opcode=opcode, payload=payload, seq=seq, direction=direction, flags=flags)
+        return cls(
+            opcode=opcode, payload=payload, seq=seq, direction=direction, flags=flags
+        )

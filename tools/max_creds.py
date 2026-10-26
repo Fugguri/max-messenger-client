@@ -10,9 +10,9 @@ creds.json + device.json.
     python tools/max_creds.py get     # дальше headless, без логина
 
 Файлы по умолчанию:
-    ~/.local/share/maxws/browser      persistent-профиль Playwright
-    ~/.config/maxws/creds.json        token / deviceId / viewerId (0600)
-    ~/.config/maxws/device.json       отпечаток для maxws.Device
+    ~/.local/share/maxmessenger/browser      persistent-профиль Playwright
+    ~/.config/maxmessenger/creds.json        token / deviceId / viewerId (0600)
+    ~/.config/maxmessenger/device.json       отпечаток для maxmessenger.Device
 """
 
 from __future__ import annotations
@@ -36,10 +36,14 @@ def _path(value: str) -> Path:
 
 
 DEFAULT_PROFILE = _path(
-    os.environ.get("MAXWS_BROWSER_DIR", "~/.local/share/maxws/browser")
+    os.environ.get("MAXMESSENGER_BROWSER_DIR", "~/.local/share/maxmessenger/browser")
 )
-DEFAULT_CREDS = _path(os.environ.get("MAXWS_CREDS", "~/.config/maxws/creds.json"))
-DEFAULT_DEVICE = _path(os.environ.get("MAXWS_DEVICE", "~/.config/maxws/device.json"))
+DEFAULT_CREDS = _path(
+    os.environ.get("MAXMESSENGER_CREDS", "~/.config/maxmessenger/creds.json")
+)
+DEFAULT_DEVICE = _path(
+    os.environ.get("MAXMESSENGER_DEVICE", "~/.config/maxmessenger/device.json")
+)
 
 READ_JS = r"""
 () => {
@@ -97,11 +101,11 @@ def creds_from(data: dict) -> dict:
 
 
 def save(creds: dict, creds_path: Path, device_path: Path) -> None:
-    # creds сохраняем первыми: даже если maxws/device.json не обновится,
+    # creds сохраняем первыми: даже если maxmessenger/device.json не обновится,
     # токен уже не потеряется.
     write_private_json(creds_path, creds)
     try:
-        from maxws.device import Device
+        from maxmessenger.device import Device
     except Exception as exc:  # noqa: BLE001
         print(f"creds сохранены, device.json не обновлён: {exc}", file=sys.stderr)
         return

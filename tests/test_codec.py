@@ -1,4 +1,5 @@
 """Тесты msgpack-слоя: кодировка id, сборка payload'ов, разбор кадров из трейса."""
+
 from __future__ import annotations
 
 import base64
@@ -8,9 +9,9 @@ import pathlib
 import msgpack
 import pytest
 
-from maxws import codec
-from maxws.codec import Id
-from maxws.protocol import Frame
+from maxmessenger import codec
+from maxmessenger.codec import Id
+from maxmessenger.protocol import Frame
 
 TRACE = pathlib.Path(__file__).parent / "ws_trace.json"
 
@@ -94,7 +95,8 @@ def test_msg_resolve_contacts():
 
 
 def test_opcodes_verified():
-    from maxws import opcodes
+    from maxmessenger import opcodes
+
     assert opcodes.GET_HISTORY == 0x31
     assert opcodes.MARK_READ == 0x32
     assert opcodes.DELETE_CHAT == 0x34
@@ -104,11 +106,13 @@ def test_opcodes_verified():
 
 
 def test_dm_chat_id_xor():
-    from maxws import MaxClient
+    from maxmessenger import MaxClient
+
     c = MaxClient("tok")
     c.session = {"profile": {"contact": {"id": Id(123456)}}}
-    assert c.dm_chat_id(111) == 123456 ^ 111      # другой пользователь
-    assert c.dm_chat_id(123456) == 0              # себе → Избранное (X^X=0)
+    assert c.dm_chat_id(111) == 123456 ^ 111  # другой пользователь
+    assert c.dm_chat_id(123456) == 0  # себе → Избранное (X^X=0)
+
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))

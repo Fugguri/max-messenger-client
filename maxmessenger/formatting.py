@@ -6,17 +6,23 @@ Telegram. Смещения/длины в **символах** (code points), н�
 Подтверждён перехватом: `STRONG` (жирный). Остальные типы выведены по аналогии
 и помечены TBD — уточнить перехватом Ctrl+I/U/… с живого клиента.
 """
+
 from __future__ import annotations
 
 from html.parser import HTMLParser
 
 # HTML-тег → тип элемента MAX. STRONG подтверждён; ниже — TBD.
 TAG_TYPE = {
-    "b": "STRONG", "strong": "STRONG",
-    "i": "EMPHASIZED", "em": "EMPHASIZED",          # TBD
-    "u": "UNDERLINE",                                # TBD
-    "s": "STRIKETHROUGH", "strike": "STRIKETHROUGH", "del": "STRIKETHROUGH",  # TBD
-    "code": "MONOSPACE", "pre": "MONOSPACE",         # TBD
+    "b": "STRONG",
+    "strong": "STRONG",
+    "i": "EMPHASIZED",
+    "em": "EMPHASIZED",  # TBD
+    "u": "UNDERLINE",  # TBD
+    "s": "STRIKETHROUGH",
+    "strike": "STRIKETHROUGH",
+    "del": "STRIKETHROUGH",  # TBD
+    "code": "MONOSPACE",
+    "pre": "MONOSPACE",  # TBD
 }
 _NEWLINE_TAGS = {"br", "p", "div"}
 
@@ -25,7 +31,7 @@ class _Collector(HTMLParser):
     def __init__(self) -> None:
         super().__init__()
         self._chunks: list[str] = []
-        self._open: list[tuple[str, int]] = []   # (type, start_offset)
+        self._open: list[tuple[str, int]] = []  # (type, start_offset)
         self.elements: list[dict] = []
 
     @property
@@ -47,7 +53,9 @@ class _Collector(HTMLParser):
                     typ, start = self._open.pop(i)
                     length = self._pos - start
                     if length > 0:
-                        self.elements.append({"type": typ, "from": start, "length": length})
+                        self.elements.append(
+                            {"type": typ, "from": start, "length": length}
+                        )
                     break
         elif tag.lower() in _NEWLINE_TAGS:
             self._chunks.append("\n")

@@ -136,7 +136,7 @@ message.elements = [ { "type": "STRONG", "from": <char>, "length": <char> }, …
 | `<s>` | `STRIKETHROUGH` | ⚠ TBD |
 | `<code>` | `MONOSPACE` | ⚠ TBD |
 
-Конвертер `maxws.formatting.html_to_message(html) -> (text, elements)` собирает это
+Конвертер `maxmessenger.formatting.html_to_message(html) -> (text, elements)` собирает это
 из Telegram-HTML редактора. Тип STRONG проверен тестом против живого кадра.
 
 ---

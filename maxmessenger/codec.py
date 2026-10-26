@@ -5,6 +5,7 @@
 - payload кадра — msgpack. При `flags=0` это один map; при `flags=2` перед map
   идут ведущие скаляры (семантика уточняется) — поэтому читаем ПОТОКОМ.
 """
+
 from __future__ import annotations
 
 import math
@@ -108,8 +109,15 @@ def decode_payload(data: bytes, flags: int):
 
 
 # ── билдеры объектов payload (клиент сам сожмёт через encode_payload) ─────────
-def msg_send(chat_id: int, text: str, cid: int, *, notify: bool = True,
-             elements: list | None = None, attaches: list | None = None) -> dict:
+def msg_send(
+    chat_id: int,
+    text: str,
+    cid: int,
+    *,
+    notify: bool = True,
+    elements: list | None = None,
+    attaches: list | None = None,
+) -> dict:
     """Объект SEND_MESSAGE (0x40): {chatId, message:{text,cid,elements,attaches}, notify}."""
     return {
         "chatId": Id(chat_id),

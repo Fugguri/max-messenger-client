@@ -1,13 +1,14 @@
 """LZ4-сжатие payload: распаковка flags=2 кадра из трейса + round-trip."""
+
 from __future__ import annotations
 
 import base64
 import json
 import pathlib
 
-from maxws import codec
-from maxws.codec import Id
-from maxws.protocol import Frame
+from maxmessenger import codec
+from maxmessenger.codec import Id
+from maxmessenger.protocol import Frame
 
 TRACE = pathlib.Path(__file__).parent / "ws_trace.json"
 
@@ -29,7 +30,7 @@ def test_trace_frame_is_compressed():
 def test_decode_trace_compressed_payload():
     fr = _trace_send_frame()
     obj = codec.decode_payload(fr.payload, fr.flags)
-    assert obj["chatId"] == Id(0)                      # Избранное
+    assert obj["chatId"] == Id(0)  # Избранное
     assert obj["message"]["text"] == "WSPROBE_MARKER_777"
     assert obj["notify"] is True
 

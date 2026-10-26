@@ -3,6 +3,7 @@
 Реальный live-трейс не включён из-за приватности. Fixture сохраняет форму
 кадров; если кодек верен — decode(байты).encode() возвращает те же байты.
 """
+
 from __future__ import annotations
 
 import base64
@@ -11,7 +12,7 @@ import pathlib
 
 import pytest
 
-from maxws.protocol import HEADER_LEN, MAGIC, Frame
+from maxmessenger.protocol import HEADER_LEN, MAGIC, Frame
 
 TRACE = pathlib.Path(__file__).parent / "ws_trace.json"
 
@@ -57,7 +58,10 @@ def test_send_opcode_present_in_trace():
 def test_encode_manual_matches_layout():
     fr = Frame(opcode=0x40, payload=b"\x81\xa1a\x01", seq=0x0016, flags=0x02)
     raw = fr.encode()
-    assert raw[:10] == bytes([MAGIC, 0x00]) + b"\x00\x16" + b"\x00\x40" + b"\x02" + b"\x00\x00\x04"
+    assert (
+        raw[:10]
+        == bytes([MAGIC, 0x00]) + b"\x00\x16" + b"\x00\x40" + b"\x02" + b"\x00\x00\x04"
+    )
     assert Frame.decode(raw) == fr
 
 

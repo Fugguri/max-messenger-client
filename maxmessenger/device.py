@@ -3,6 +3,7 @@
 HELLO payload = { userAgent: {...}, deviceId: "<uuid>" }. deviceId делать
 ПОСТОЯННЫМ (тот же, что в браузере, — берётся из localStorage `__oneme_device_id`).
 """
+
 from __future__ import annotations
 
 import uuid

@@ -9,6 +9,7 @@
 Здесь — шаг 2 (HTTP). Шаги 1 и 3 — в client.py. HTTP-вызов синхронный (urllib,
 без лишних зависимостей); клиент гоняет его через asyncio.to_thread.
 """
+
 from __future__ import annotations
 
 import json
@@ -23,12 +24,14 @@ logger = logging.getLogger(__name__)
 _FILE_FIELD = "file"
 
 
-def _multipart(field: str, filename: str, content: bytes, content_type: str) -> tuple[bytes, str]:
+def _multipart(
+    field: str, filename: str, content: bytes, content_type: str
+) -> tuple[bytes, str]:
     """Собрать тело multipart/form-data с одним файловым полем. → (тело, boundary)."""
-    boundary = "----maxws" + os.urandom(12).hex()
+    boundary = "----maxmessenger" + os.urandom(12).hex()
     crlf = b"\r\n"
     head = (
-        f'--{boundary}\r\n'
+        f"--{boundary}\r\n"
         f'Content-Disposition: form-data; name="{field}"; filename="{filename}"\r\n'
         f"Content-Type: {content_type}\r\n\r\n"
     ).encode()
@@ -40,8 +43,9 @@ def guess_content_type(path: str) -> str:
     return mimetypes.guess_type(path)[0] or "application/octet-stream"
 
 
-def upload_to_cdn(url: str, content: bytes, filename: str, content_type: str,
-                  *, timeout: float = 60.0) -> dict:
+def upload_to_cdn(
+    url: str, content: bytes, filename: str, content_type: str, *, timeout: float = 60.0
+) -> dict:
     """POST файла на выданный CDN-url (шаг 2). Возвращает распарсенный JSON-ответ.
 
     Синхронный (urllib). Бросает при не-2xx или неразборном ответе — глотать нельзя,
@@ -49,14 +53,18 @@ def upload_to_cdn(url: str, content: bytes, filename: str, content_type: str,
     """
     body, boundary = _multipart(_FILE_FIELD, filename, content, content_type)
     req = urllib.request.Request(
-        url, data=body, method="POST",
+        url,
+        data=body,
+        method="POST",
         headers={
             "Content-Type": f"multipart/form-data; boundary={boundary}",
             "Origin": "https://web.max.ru",
             "Referer": "https://web.max.ru/",
         },
     )
-    logger.info("MAX CDN: заливаю %s (%d байт, %s)", filename, len(content), content_type)
+    logger.info(
+        "MAX CDN: заливаю %s (%d байт, %s)", filename, len(content), content_type
+    )
     with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 — доверенный CDN MAX
         raw = resp.read()
     data = json.loads(raw.decode("utf-8"))

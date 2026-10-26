@@ -1,5 +1,6 @@
 """Тесты HTML → MAX elements (совпадение с реальным кадром: STRONG from/length)."""
-from maxws.formatting import html_to_message
+
+from maxmessenger.formatting import html_to_message
 
 
 def test_bold_matches_live_frame():

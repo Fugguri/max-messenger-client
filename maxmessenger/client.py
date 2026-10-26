@@ -5,6 +5,7 @@
 сервера не гонялись** — помечено в докстрингах. Это скелет поверх разобранного
 протокола, а не «проверено в бою».
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -29,10 +30,17 @@ DEFAULT_WS_URL = "wss://api.oneme.ru/websocket"
 
 
 class MaxClient:
-    def __init__(self, token: str, *, device: Device | None = None,
-                 url: str = DEFAULT_WS_URL, request_timeout: float = 15.0,
-                 max_retries: int = 3, backoff_base: float = 0.5,
-                 backoff_max: float = 8.0) -> None:
+    def __init__(
+        self,
+        token: str,
+        *,
+        device: Device | None = None,
+        url: str = DEFAULT_WS_URL,
+        request_timeout: float = 15.0,
+        max_retries: int = 3,
+        backoff_base: float = 0.5,
+        backoff_max: float = 8.0,
+    ) -> None:
         self.url = url
         self.token = token
         self.device = device or Device()
@@ -44,7 +52,9 @@ class MaxClient:
         self._max_retries = max_retries
         self._backoff_base = backoff_base
         self._backoff_max = backoff_max
-        self.session: dict | None = None  # дамp аккаунта из AUTH (chats/contacts/profile)
+        self.session: dict | None = (
+            None  # дамp аккаунта из AUTH (chats/contacts/profile)
+        )
         self.on_event: EventHandler | None = None
 
     # ── соединение ──────────────────────────────────────────────────────────
@@ -55,7 +65,9 @@ class MaxClient:
         """Открыть WS и запустить приём. Шлём Origin/User-Agent как браузер —
         иначе сервер отвечает 403 на upgrade."""
         self._ws = await websockets.connect(
-            self.url, max_size=None, origin=self.ORIGIN,
+            self.url,
+            max_size=None,
+            origin=self.ORIGIN,
             user_agent_header=self.device.header_user_agent,
         )
         self._recv_task = asyncio.create_task(self._recv_loop())
@@ -107,14 +119,18 @@ class MaxClient:
         self._seq = (self._seq + 1) & 0xFFFF
         return self._seq
 
-    async def _send_once(self, opcode: int, obj=None, *, timeout: float | None = None) -> Frame:
+    async def _send_once(
+        self, opcode: int, obj=None, *, timeout: float | None = None
+    ) -> Frame:
         if self._ws is None:
             raise RuntimeError("не подключено")
         seq = self._next_seq()
         payload, flags = codec.encode_payload(obj) if obj is not None else (b"", 0)
         fut: asyncio.Future = asyncio.get_running_loop().create_future()
         self._pending[seq] = fut
-        await self._ws.send(Frame(opcode=opcode, payload=payload, seq=seq, flags=flags).encode())
+        await self._ws.send(
+            Frame(opcode=opcode, payload=payload, seq=seq, flags=flags).encode()
+        )
         logger.debug("→ %s seq=%d flags=%d", opcodes.name(opcode), seq, flags)
         try:
             return await asyncio.wait_for(fut, timeout or self._timeout)
@@ -130,19 +146,30 @@ class MaxClient:
         for attempt in range(self._max_retries + 1):
             try:
                 return await self._send_once(opcode, obj)
-            except (websockets.ConnectionClosed, asyncio.TimeoutError, RuntimeError) as exc:
+            except (
+                websockets.ConnectionClosed,
+                asyncio.TimeoutError,
+                RuntimeError,
+            ) as exc:
                 last = exc
                 if attempt >= self._max_retries:
                     break
-                delay = min(self._backoff_base * (2 ** attempt), self._backoff_max)
-                logger.warning("MAX WS: %s на %s, реконнект через %.1fs (попытка %d)",
-                               exc.__class__.__name__, opcodes.name(opcode), delay, attempt + 1)
+                delay = min(self._backoff_base * (2**attempt), self._backoff_max)
+                logger.warning(
+                    "MAX WS: %s на %s, реконнект через %.1fs (попытка %d)",
+                    exc.__class__.__name__,
+                    opcodes.name(opcode),
+                    delay,
+                    attempt + 1,
+                )
                 await asyncio.sleep(delay)
                 try:
                     await self._reconnect()
                 except Exception:  # noqa: BLE001 — реконнект не удался, следующая попытка
                     logger.exception("MAX WS: реконнект не удался")
-        raise RuntimeError(f"запрос {opcodes.name(opcode)} не прошёл после ретраев") from last
+        raise RuntimeError(
+            f"запрос {opcodes.name(opcode)} не прошёл после ретраев"
+        ) from last
 
     async def _reconnect(self) -> None:
         """Переоткрыть WS и заново пройти handshake (hello+auth)."""
@@ -180,10 +207,18 @@ class MaxClient:
 
         chatsCount ограничивает число чатов в дампе (пагинация страницами по ≤100).
         get_groups() читает эту страницу — при >100 чатов часть групп не попадёт."""
-        frame = await self._send_once(opcodes.AUTH, {
-            "token": self.token, "chatsCount": self.CHATS_COUNT, "interactive": True,
-            "chatsSync": 0, "contactsSync": 0, "presenceSync": -1, "draftsSync": 0,
-        })
+        frame = await self._send_once(
+            opcodes.AUTH,
+            {
+                "token": self.token,
+                "chatsCount": self.CHATS_COUNT,
+                "interactive": True,
+                "chatsSync": 0,
+                "contactsSync": 0,
+                "presenceSync": -1,
+                "draftsSync": 0,
+            },
+        )
         if isinstance(frame.data, dict):
             self.session = frame.data
         return frame
@@ -198,7 +233,9 @@ class MaxClient:
         списка на больших аккаунтах сначала вызови `load_all_chats()`."""
         return [c for c in self.get_chats() if c.get("type") == "CHAT"]
 
-    async def load_all_chats(self, *, page_size: int = 50, max_pages: int = 100) -> list:
+    async def load_all_chats(
+        self, *, page_size: int = 50, max_pages: int = 100
+    ) -> list:
         """Догрузить ВСЕ чаты пагинацией (opcode 0x35), т.к. AUTH отдаёт лишь первую
         страницу (≤100). Курсор `marker` (timestamp) из ответа → в следующий запрос,
         пока страницы не кончатся. Дедуп по id, обновляет self.session['chats']."""
@@ -286,36 +323,61 @@ class MaxClient:
         data = frame.data if isinstance(frame.data, dict) else {}
         return data.get("contacts", [])
 
-    async def get_history(self, chat_id: int, count: int = 30,
-                          from_time: int | None = None) -> list:
+    async def get_history(
+        self, chat_id: int, count: int = 30, from_time: int | None = None
+    ) -> list:
         """История сообщений чата (opcode 0x31). Грузит `count` сообщений назад от
         `from_time` (мс, по умолчанию сейчас). → список сообщений (новые→старые)."""
         ts = from_time if from_time is not None else int(time.time() * 1000)
-        frame = await self.request(opcodes.GET_HISTORY, {
-            "chatId": codec.Id(int(chat_id)), "from": ts,
-            "forward": 0, "backward": int(count), "getMessages": True,
-        })
+        frame = await self.request(
+            opcodes.GET_HISTORY,
+            {
+                "chatId": codec.Id(int(chat_id)),
+                "from": ts,
+                "forward": 0,
+                "backward": int(count),
+                "getMessages": True,
+            },
+        )
         data = frame.data if isinstance(frame.data, dict) else {}
         return data.get("messages", [])
 
-    async def mark_read(self, chat_id: int, message_id: int,
-                        *, mark_time: int | None = None) -> Frame:
+    async def mark_read(
+        self, chat_id: int, message_id: int, *, mark_time: int | None = None
+    ) -> Frame:
         """Отметить чат прочитанным до message_id (opcode 0x32)."""
         ts = mark_time if mark_time is not None else int(time.time() * 1000)
-        return await self.request(opcodes.MARK_READ, {
-            "type": "READ_MESSAGE", "chatId": codec.Id(int(chat_id)),
-            "messageId": codec.Id(int(message_id)), "mark": ts,
-        })
+        return await self.request(
+            opcodes.MARK_READ,
+            {
+                "type": "READ_MESSAGE",
+                "chatId": codec.Id(int(chat_id)),
+                "messageId": codec.Id(int(message_id)),
+                "mark": ts,
+            },
+        )
 
-    async def edit_message(self, chat_id: int, message_id: int, text: str,
-                           *, elements: list | None = None,
-                           attachments: list | None = None) -> Frame:
+    async def edit_message(
+        self,
+        chat_id: int,
+        message_id: int,
+        text: str,
+        *,
+        elements: list | None = None,
+        attachments: list | None = None,
+    ) -> Frame:
         """Редактировать своё сообщение (opcode 0x43). Ключ вложений — `attachments`
         (в отличие от send, где `attaches`); чтобы сохранить фото — передай его attach."""
-        return await self.request(opcodes.EDIT_MESSAGE, {
-            "chatId": codec.Id(int(chat_id)), "messageId": codec.Id(int(message_id)),
-            "text": text, "elements": elements or [], "attachments": attachments or [],
-        })
+        return await self.request(
+            opcodes.EDIT_MESSAGE,
+            {
+                "chatId": codec.Id(int(chat_id)),
+                "messageId": codec.Id(int(message_id)),
+                "text": text,
+                "elements": elements or [],
+                "attachments": attachments or [],
+            },
+        )
 
     async def create_group(self, title: str, user_ids) -> dict | None:
         """Создать группу (SEND_MESSAGE 0x40 с CONTROL-attach). user_ids — начальные
@@ -324,10 +386,15 @@ class MaxClient:
         obj = {
             "message": {
                 "cid": codec.Id(cid),
-                "attaches": [{
-                    "_type": "CONTROL", "event": "new", "chatType": "CHAT",
-                    "title": title, "userIds": [codec.Id(int(u)) for u in user_ids],
-                }],
+                "attaches": [
+                    {
+                        "_type": "CONTROL",
+                        "event": "new",
+                        "chatType": "CHAT",
+                        "title": title,
+                        "userIds": [codec.Id(int(u)) for u in user_ids],
+                    }
+                ],
             },
             "notify": True,
         }
@@ -335,14 +402,20 @@ class MaxClient:
         data = frame.data if isinstance(frame.data, dict) else {}
         return data.get("chat") or None
 
-    async def delete_chat(self, chat_id: int, *, last_event_time: int | None = None,
-                          for_all: bool = True) -> Frame:
+    async def delete_chat(
+        self, chat_id: int, *, last_event_time: int | None = None, for_all: bool = True
+    ) -> Frame:
         """Удалить/выйти из чата (opcode 0x34). for_all=True — у всех (для своих групп);
         False — только у себя."""
         ts = last_event_time if last_event_time is not None else int(time.time() * 1000)
-        return await self.request(opcodes.DELETE_CHAT, {
-            "chatId": codec.Id(int(chat_id)), "lastEventTime": int(ts), "forAll": for_all,
-        })
+        return await self.request(
+            opcodes.DELETE_CHAT,
+            {
+                "chatId": codec.Id(int(chat_id)),
+                "lastEventTime": int(ts),
+                "forAll": for_all,
+            },
+        )
 
     async def get_presence(self, ids) -> dict:
         """Онлайн-статус пользователей (opcode 0x23) → {presence:{id:{...}}}.
@@ -350,7 +423,9 @@ class MaxClient:
         ids = [int(i) for i in ids]
         if not ids:
             return {}
-        frame = await self.request(opcodes.GET_MEMBERS, {"contactIds": [codec.Id(i) for i in ids]})
+        frame = await self.request(
+            opcodes.GET_MEMBERS, {"contactIds": [codec.Id(i) for i in ids]}
+        )
         data = frame.data if isinstance(frame.data, dict) else {}
         return data.get("presence", {})
 
@@ -360,7 +435,9 @@ class MaxClient:
         ids = [int(i) for i in chat_ids]
         if not ids:
             return []
-        frame = await self.request(opcodes.SYNC_CHAT, {"chatIds": [codec.Id(i) for i in ids]})
+        frame = await self.request(
+            opcodes.SYNC_CHAT, {"chatIds": [codec.Id(i) for i in ids]}
+        )
         data = frame.data if isinstance(frame.data, dict) else {}
         return data.get("chats", [])
 
@@ -371,8 +448,9 @@ class MaxClient:
         ⚠ На НЕсуществующий номер сервер молча не отвечает → таймаут трактуем как
         «не найден» (без реконнект-ретраев, чтобы батч номеров не тормозил)."""
         try:
-            frame = await self._send_once(opcodes.SEARCH_PHONE,
-                                          codec.msg_search_phone(phone), timeout=timeout)
+            frame = await self._send_once(
+                opcodes.SEARCH_PHONE, codec.msg_search_phone(phone), timeout=timeout
+            )
         except (asyncio.TimeoutError, websockets.ConnectionClosed):
             return None
         data = frame.data if isinstance(frame.data, dict) else {}
@@ -394,10 +472,16 @@ class MaxClient:
             out.append({"id": uid, "name": name, "phone": c.get("phone")})
         return out
 
-    async def send_message(self, chat_id: int, text: str, *, notify: bool = True,
-                           elements: list | None = None) -> Frame:
+    async def send_message(
+        self,
+        chat_id: int,
+        text: str,
+        *,
+        notify: bool = True,
+        elements: list | None = None,
+    ) -> Frame:
         """Отправить сообщение (opcode 64). elements — форматирование
-        (см. maxws.formatting.html_to_message)."""
+        (см. maxmessenger.formatting.html_to_message)."""
         cid = int(time.time() * 1000)  # клиентский id сообщения
         obj = codec.msg_send(chat_id, text, cid, notify=notify, elements=elements)
         return await self.request(opcodes.SEND_MESSAGE, obj)
@@ -412,31 +496,45 @@ class MaxClient:
             raise RuntimeError("нет own_id — сначала auth()")
         return int(user_id) ^ int(own)
 
-    async def send_dm(self, user_id: int, text: str, *, notify: bool = True,
-                      elements: list | None = None) -> Frame:
+    async def send_dm(
+        self,
+        user_id: int,
+        text: str,
+        *,
+        notify: bool = True,
+        elements: list | None = None,
+    ) -> Frame:
         """Отправить ЛС пользователю по его user_id (сам считает id диалога через XOR).
         Не требует, чтобы диалог уже существовал."""
-        return await self.send_message(self.dm_chat_id(user_id), text,
-                                       notify=notify, elements=elements)
+        return await self.send_message(
+            self.dm_chat_id(user_id), text, notify=notify, elements=elements
+        )
 
     async def get_members(self, chat_id: int) -> Frame:
         """Запросить участников чата (opcode 35)."""
         return await self.request(opcodes.GET_MEMBERS, codec.msg_get_members(chat_id))
 
-    async def delete_message(self, chat_id: int, message_id: int, *, for_me: bool = False) -> Frame:
+    async def delete_message(
+        self, chat_id: int, message_id: int, *, for_me: bool = False
+    ) -> Frame:
         """Удалить сообщение (opcode 66). for_me=False → у всех (для отката рассылки);
         for_me=True → только у себя. Удаление «у всех» обычно ограничено по времени."""
-        return await self.request(opcodes.DELETE_MESSAGE, {
-            "chatId": codec.Id(int(chat_id)),
-            "messageIds": [codec.Id(int(message_id))],
-            "forMe": for_me,
-        })
+        return await self.request(
+            opcodes.DELETE_MESSAGE,
+            {
+                "chatId": codec.Id(int(chat_id)),
+                "messageIds": [codec.Id(int(message_id))],
+                "forMe": for_me,
+            },
+        )
 
     # ── медиа (фото) ─────────────────────────────────────────────────────────
     async def request_upload_url(self, count: int = 1) -> str:
         """Запросить CDN-url для загрузки фото (opcode 0x50). Возвращает url
         (iu.oneme.ru/uploadImage?apiToken=…&photoIds=…). count — число фото."""
-        frame = await self.request(opcodes.REQUEST_UPLOAD, codec.msg_request_upload(count))
+        frame = await self.request(
+            opcodes.REQUEST_UPLOAD, codec.msg_request_upload(count)
+        )
         data = frame.data if isinstance(frame.data, dict) else {}
         url = data.get("url") or (data.get("urls") or [None])[0]
         if not url:
@@ -454,19 +552,34 @@ class MaxClient:
         filename = os.path.basename(path) or "image"
         ctype = media.guess_content_type(path)
         url = await self.request_upload_url(1)
-        resp = await asyncio.to_thread(media.upload_to_cdn, url, content, filename, ctype)
+        resp = await asyncio.to_thread(
+            media.upload_to_cdn, url, content, filename, ctype
+        )
         token = media.extract_photo_token(resp)
         logger.info("MAX: фото залито (%s), photoToken получен", filename)
         return token
 
-    async def send_photo(self, chat_id: int, path: str, *, caption: str = "",
-                         notify: bool = True, elements: list | None = None) -> Frame:
+    async def send_photo(
+        self,
+        chat_id: int,
+        path: str,
+        *,
+        caption: str = "",
+        notify: bool = True,
+        elements: list | None = None,
+    ) -> Frame:
         """Отправить фото (при желании с подписью). Загружает на CDN и шлёт SEND
         с attaches:[PHOTO]. caption — текст-подпись, elements — форматирование."""
         token = await self.upload_photo(path)
         cid = int(time.time() * 1000)
-        obj = codec.msg_send(chat_id, caption, cid, notify=notify,
-                             elements=elements, attaches=[codec.photo_attach(token)])
+        obj = codec.msg_send(
+            chat_id,
+            caption,
+            cid,
+            notify=notify,
+            elements=elements,
+            attaches=[codec.photo_attach(token)],
+        )
         return await self.request(opcodes.SEND_MESSAGE, obj)
 
     async def __aenter__(self) -> "MaxClient":
