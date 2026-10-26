@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "maxws"
+version = "0.1.0"
+description = "Unofficial reverse-engineered Python client for the MAX messenger WebSocket protocol (web.max.ru / max.ru)"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Nikita Radzyuk", email = "nogurru007@gmail.com" }]
+license = { text = "MIT" }
+keywords = [
+  "max", "max-messenger", "max-api", "max.ru", "web.max.ru",
+  "websocket", "reverse-engineering", "unofficial-api",
+  "msgpack", "lz4", "python", "asyncio", "client",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Communications :: Chat",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "msgpack>=1.0",
+    "websockets>=12.0",
+    "lz4>=4.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+login = ["playwright>=1.40"]
+
+[project.urls]
+Homepage = "https://github.com/Fugguri/maxws"
+Repository = "https://github.com/Fugguri/maxws"
+Issues = "https://github.com/Fugguri/maxws/issues"
+
+[tool.setuptools.packages.find]
+include = ["maxws*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
