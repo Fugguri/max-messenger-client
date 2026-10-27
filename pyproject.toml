@@ -12,8 +12,8 @@ authors = [{ name = "Nikita Radzyuk", email = "nogurru007@gmail.com" }]
 license = { text = "MIT" }
 keywords = [
   "max", "max-messenger", "max-messenger-client", "maxmessenger",
-  "max-client", "max-api", "max.ru", "web.max.ru",
-  "websocket", "reverse-engineering", "unofficial-api",
+  "max-client", "max-protocol", "max-websocket", "max.ru", "web.max.ru",
+  "websocket", "reverse-engineering",
   "msgpack", "lz4", "python", "asyncio", "client",
 ]
 classifiers = [

@@ -10,13 +10,13 @@ LZ4-сжатие (`flags`), HELLO/AUTH, чаты, участники, отпра
 Reverse-engineered по перехвату WS-кадров; не связан с VK/MAX.
 
 > **English:** Unofficial Python client and protocol notes for the MAX messenger
-> (`max.ru` / `web.max.ru`) WebSocket API: frame codec, msgpack, LZ4, HELLO/AUTH,
+> (`max.ru` / `web.max.ru`) WebSocket protocol: frame codec, msgpack, LZ4, HELLO/AUTH,
 > chats, media, sending. Reverse-engineered; not affiliated with VK/MAX.
 
 Репозиторий: [Fugguri/max-messenger-client](https://github.com/Fugguri/max-messenger-client)
 · Python package: `maxmessenger`.
 
-Если вы ищете неофициальный API/клиент MAX, Python-клиент MAX или разбор его
+Если вы ищете неофициальный клиент MAX, Python-клиент MAX или разбор его
 WebSocket-протокола — это оно. Полная спека — [`PROTOCOL.md`](PROTOCOL.md).
 
 > **Статус честно.** Полностью разобран и покрыт тестами (публичный
